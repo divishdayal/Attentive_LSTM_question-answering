@@ -19,3 +19,4 @@ The model uses bidirectional LSTMs to construct question vector and applies atte
 4. input_wikiqa.py - The text processing file for the dataset used - WikiQA
 5. train.py - the file to be executed for training the model
 6. model.py - The file containing the model		
+
