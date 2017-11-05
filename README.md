@@ -10,6 +10,8 @@ It is implemented on Tensorflow (1.3.0).
 
 The model uses bidirectional LSTMs to construct question vector and applies attention on question embedding to contruct answer vector. The loss fuction is the cosine similarity between the question and the answer. For more info, check out the above mentioned paper.
 
+![model](https://github.com/divishdayal/Attentive_LSTM_question-answering/blob/master/model_pic.png "Model Architecture from paper")
+
 ## Files -
 1. WikiQA-test.tsv - Data for the test dataset
 2. WikiQA-train.tsv	- Data for the training dataset
