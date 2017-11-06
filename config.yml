@@ -1,6 +1,6 @@
  glove_dir : '../../../animesh/glove/'
  data_file : 'WikiQA-train.tsv'
- embedding_size : 100
+ embedding_size : 50
  vocab_length : 400000
  learning_rate : 0.001
  dropout : 0.5
@@ -12,3 +12,4 @@
  margin : 0.2
  num_epochs : 20
  max_sequence_length : 50
+ dropout : 0.6

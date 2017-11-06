@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def model_qa(x_answer, answer_seq_length, x_question, question_seq_length, max_document_length, n_hidden=128, reuse=False):
+def model_qa(x_answer, answer_seq_length, x_question, question_seq_length, max_document_length, dropout, n_hidden=128, reuse=False):
     '''
     x_answer : input for answer
     answer_seq_length : sequence length for answer
@@ -20,6 +20,10 @@ def model_qa(x_answer, answer_seq_length, x_question, question_seq_length, max_d
     with tf.variable_scope("q_lstm", reuse=reuse) as scope:
         lstm_cell_q_fw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
         lstm_cell_q_bw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+
+        #dropout
+        lstm_cell_q_fw = tf.contrib.rnn.DropoutWrapper(lstm_cell_q_fw, output_keep_prob = dropout)
+        lstm_cell_q_bw = tf.contrib.rnn.DropoutWrapper(lstm_cell_q_bw, output_keep_prob = dropout)
 
         # Get lstm cell output, providing 'sequence_length' will perform dynamic
         # calculation.
@@ -45,6 +49,10 @@ def model_qa(x_answer, answer_seq_length, x_question, question_seq_length, max_d
     with tf.variable_scope("a_lstm", reuse=reuse) as scope:
         lstm_cell_a_fw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
         lstm_cell_a_bw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+
+        #dropout
+        lstm_cell_a_fw = tf.contrib.rnn.DropoutWrapper(lstm_cell_a_fw, output_keep_prob = dropout)
+        lstm_cell_a_bw = tf.contrib.rnn.DropoutWrapper(lstm_cell_a_bw, output_keep_prob = dropout)
 
         # Get lstm cell output, providing 'sequence_length' will perform dynamic
         # calculation.

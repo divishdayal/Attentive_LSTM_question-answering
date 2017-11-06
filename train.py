@@ -10,6 +10,13 @@ import math
 import nltk
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
+import sys
+
+
+if len(sys.argv) > 1:
+    if sys.argv[1] == 'y':
+        print 'outputting in the file now'
+        sys.stdout = open('output.txt', 'w')
 
 """Yield successive n-sized chunks from l."""
 def chunks(l, n):
@@ -78,6 +85,9 @@ margin = config['margin']
 batch_size = config['batch_size']
 num_epochs = config['num_epochs']
 max_sequence_length = config['max_sequence_length']
+dropout_file = config['dropout']
+vocab_file = config['vocab_file']
+embedding_file = config['embedding_file']
 config_file.close()
 
 #set tf flags
@@ -124,6 +134,8 @@ a_correct_seq_length = tf.placeholder(tf.int32, [None], name = 'question_seq_len
 x_a_wrong = tf.placeholder(tf.int32, [None, max_sequence_length], name='input_question')
 a_wrong_seq_length = tf.placeholder(tf.int32, [None], name = 'question_seq_length')
 
+dropout_prob = tf.placeholder(tf.float32, name='dropout_prob')
+
 # --------------------------------------------------------------
 #              ------- Loss - Cosine Loss ------------
 # --------------------------------------------------------------
@@ -137,8 +149,8 @@ input_sentence_vec_a_wrong = tf.nn.embedding_lookup(W, x_a_wrong)
 m = tf.placeholder(tf.float32) #read from config file
 
 #cos distances
-dis_right,output_mean_a_right, output_mean_q_right = model_qa(input_sentence_vec_a_right, a_correct_seq_length, input_sentence_vec_q, q_seq_length, max_sequence_length,128, False)
-dis_wrong,_,_ = model_qa(input_sentence_vec_a_wrong, a_wrong_seq_length, input_sentence_vec_q, q_seq_length,max_sequence_length, 128, True)
+dis_right,output_mean_a_right, output_mean_q_right = model_qa(input_sentence_vec_a_right, a_correct_seq_length, input_sentence_vec_q, q_seq_length, max_sequence_length, dropout_prob, 128, False)
+dis_wrong,_,_ = model_qa(input_sentence_vec_a_wrong, a_wrong_seq_length, input_sentence_vec_q, q_seq_length,max_sequence_length, dropout_prob, 128, True)
 
 # loss calculation
 loss = tf.maximum(tf.constant(0, dtype=tf.float32), m - tf.subtract(1.0,dis_right) + tf.subtract(1.0,dis_wrong))
@@ -193,7 +205,7 @@ for x in range(1, FLAGS.num_epochs):
 
         _, loss_val = sess.run([train_step, loss], feed_dict={x_q:x_questions_id, x_a_correct:x_answers_right_id, x_a_wrong : x_answers_wrong_id, 
             a_correct_seq_length : np.array(seq_right), a_wrong_seq_length : np.array(seq_wrong), q_seq_length:np.array(seq_question)
-            , learning_rate : learning_rate_file, m : margin})
+            , learning_rate : learning_rate_file, m : margin, dropout_prob : dropout_file})
         # if i % FLAGS.report_error_freq == 0:
         print 'batch - ', i, ', loss - ', loss_val    
 
@@ -217,7 +229,7 @@ for x in range(1, FLAGS.num_epochs):
         x_question, seq_question = change_word_to_id(vocab, question, max_sequence_length, not_exist_index)
         x_ans, seq_ans = change_word_to_id(vocab, total_ans, max_sequence_length, not_exist_index)
         sim, a, q = sess.run([dis_right, output_mean_a_right, output_mean_q_right], feed_dict={x_q:x_question, x_a_correct:x_ans, 
-                        a_correct_seq_length : seq_ans, q_seq_length:seq_question})
+                        a_correct_seq_length : seq_ans, q_seq_length:seq_question, dropout_prob : np.float32(1.0)})
         max_cos = -2
         index_max = -1
         for ind, z in enumerate(a):
@@ -231,6 +243,7 @@ for x in range(1, FLAGS.num_epochs):
             y_pred.append(1.0)
         if i % 20 == 0:
             print 'question - ', i
+            print y_pred
     accuracy = np.mean(y_pred)
     print '\n\n test accuracy - ', accuracy
 
@@ -257,14 +270,17 @@ for x in range(1, FLAGS.num_epochs):
     # accuracy = np.mean(y_pred)
     # print '\n\n test accuracy - ', accuracy
 
-    # f_voc = open(vocab_file, 'w') 
-    # f_emb = open(embedding_file, 'w') 
-    # for x in vocab:
-    #     f_voc.write(x.encode('utf-8'))
-    #     f_voc.write('\n').write(str(y) + ' ')
-    #     f_emb.write('\n')
-    # f_voc.close()
-    # f_emb.close()
+    f_voc = open(vocab_file, 'w') 
+    f_emb = open(embedding_file, 'w') 
+    for x in vocab:
+        f_voc.write(x.encode('utf-8'))
+        f_voc.write('\n')
+    for x in embeddings:
+        for y in x:
+            f_emb.write(str(y) + ' ')
+        f_emb.write('\n')
+    f_voc.close()
+    f_emb.close()
 
     saver = tf.train.Saver()
     saver.save(sess, 'model/my-model-qAndA')
