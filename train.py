@@ -8,6 +8,8 @@ import os
 import numpy as np
 import math
 import nltk
+from sklearn.metrics.pairwise import cosine_similarity
+from datetime import datetime
 
 """Yield successive n-sized chunks from l."""
 def chunks(l, n):
@@ -134,13 +136,13 @@ input_sentence_vec_a_wrong = tf.nn.embedding_lookup(W, x_a_wrong)
 #margin
 m = tf.placeholder(tf.float32) #read from config file
 
-#cos_similarities
-sim_right = model_qa(input_sentence_vec_a_right, a_correct_seq_length, input_sentence_vec_q, q_seq_length, max_sequence_length,128, False)
-sim_wrong = model_qa(input_sentence_vec_a_wrong, a_wrong_seq_length, input_sentence_vec_q, q_seq_length,max_sequence_length, 128, True)
+#cos distances
+dis_right,output_mean_a_right, output_mean_q_right = model_qa(input_sentence_vec_a_right, a_correct_seq_length, input_sentence_vec_q, q_seq_length, max_sequence_length,128, False)
+dis_wrong,_,_ = model_qa(input_sentence_vec_a_wrong, a_wrong_seq_length, input_sentence_vec_q, q_seq_length,max_sequence_length, 128, True)
 
-#loss calculation
-losses = tf.maximum(tf.constant(0, dtype=tf.float32), m - sim_right + sim_wrong)
-loss = tf.reduce_mean(losses)
+# loss calculation
+loss = tf.maximum(tf.constant(0, dtype=tf.float32), m - tf.subtract(1.0,dis_right) + tf.subtract(1.0,dis_wrong))
+# loss = tf.reduce_mean(losses)
 
 #train
 learning_rate = tf.placeholder(tf.float32)
@@ -195,47 +197,74 @@ for x in range(1, FLAGS.num_epochs):
         # if i % FLAGS.report_error_freq == 0:
         print 'batch - ', i, ', loss - ', loss_val    
 
+    # ----- TESTING ------
+    #save model
+    saver = tf.train.Saver()
+    saver.save(sess, 'model/my-model-qAndA' + str(datetime.now()))
 
-    x_answers_right = []
-    x_answers_wrong = []
-    x_questions = []
+    #calculate accuracy
+    y_pred = []
+    print '---- TEST ----'
     for i, x in enumerate(test_data):
-        x_questions.append(x[0])
-        x_answers_right.append(x[1][0][0])
-        index_wrong_ans = math.floor(random.random() * len(x[2]))
-        x_answers_wrong.append(x[2][index_wrong_ans][0])
+        total_ans = []
+        for y in x[1]:
+            total_ans.append(y[0])
+        for y in x[2]:
+            total_ans.append(y[0])
+        question = np.array(x[0])
+        question = np.repeat(question, [len(total_ans)], axis = 0)
 
+        x_question, seq_question = change_word_to_id(vocab, question, max_sequence_length, not_exist_index)
+        x_ans, seq_ans = change_word_to_id(vocab, total_ans, max_sequence_length, not_exist_index)
+        sim, a, q = sess.run([dis_right, output_mean_a_right, output_mean_q_right], feed_dict={x_q:x_question, x_a_correct:x_ans, 
+                        a_correct_seq_length : seq_ans, q_seq_length:seq_question})
+        max_cos = -2
+        index_max = -1
+        for ind, z in enumerate(a):
+            cos_sim = cosine_similarity(np.reshape(z, [1,-1]),np.reshape(q[ind], [1,-1]))[0,0]
+            if cos_sim > max_cos:
+                max_cos = cos_sim
+                index_max = ind
+        if index_max > len(x[1])-1:
+            y_pred.append(0.0)
+        else:
+            y_pred.append(1.0)
+        if i % 20 == 0:
+            print 'question - ', i
+    accuracy = np.mean(y_pred)
+    print '\n\n test accuracy - ', accuracy
 
+    #     cos_sim = []
+    #     max_right = 0
+    #     max_wrong = 0
+    #     #right
+    #     for z in x[1]:
+    #         x_ans, seq_ans = change_word_to_id(vocab, z[0], max_sequence_length, not_exist_index)
+    #         sim = sess.run(sim_right, feed_dict={x_q:x_question, x_a_correct:x_ans, 
+    #                     a_correct_seq_length : np.array(seq_ans), q_seq_length:np.array(seq_question)})
+    #         if sim > max_right:
+    #             max_right = sim
+    #     for y in x[2]:
+    #         x_ans, seq_ans = change_word_to_id(vocab, y[0], max_sequence_length, not_exist_index)
+    #         sim = sess.run(sim_right, feed_dict={x_q:x_question, x_a_correct:x_ans, 
+    #                     a_correct_seq_length : np.array(seq_ans), q_seq_length:np.array(seq_question)})
+    #         if sim > max_wrong:
+    #             max_wrong = sim
+    #     if max_right > max_wrong:
+    #         y_pred.append(1.0)
+    #     else:
+    #         y_pred.append(0.0)
+    # accuracy = np.mean(y_pred)
+    # print '\n\n test accuracy - ', accuracy
 
-    #get word id list for each word in each sentence of the batch_x
-    x_answers_right_id = change_word_to_id(vocab, x_answers_right, max_sequence_length, not_exist_index)
-    x_answers_wrong_id = change_word_to_id(vocab, x_answers_wrong, max_sequence_length, not_exist_index)
-    x_questions_id = change_word_to_id(vocab, x_questions, max_sequence_length, not_exist_index)
-
-    #sequence lengths
-    seq_right = []
-    seq_wrong = []
-    for x in x_answers_right_id:
-        seq_right.append(len(x))
-    for x in x_answers_wrong_id:
-        seq_wrong.append(len(x))
-
-    loss_val = sess.run(loss, feed_dict={x_q:x_questions_id, x_a_correct:x_answers_right_id, x_a_wrong : x_answers_wrong_id, 
-            a_correct_seq_length : seq_right, a_wrong_seq_length : seq_wrong, m : margin})
-
-    f_voc = open(vocab_file, 'w') 
-    f_emb = open(embedding_file, 'w') 
-    for x in vocab:
-        f_voc.write(x.encode('utf-8'))
-        f_voc.write('\n')
-    for x in embeddings:
-        for y in x:
-            f_emb.write(str(y) + ' ')
-        f_emb.write('\n')
-    f_voc.close()
-    f_emb.close()
-    # print 'test accuracy - ', test_accuracy
-    print 'test loss - ', loss_val
+    # f_voc = open(vocab_file, 'w') 
+    # f_emb = open(embedding_file, 'w') 
+    # for x in vocab:
+    #     f_voc.write(x.encode('utf-8'))
+    #     f_voc.write('\n').write(str(y) + ' ')
+    #     f_emb.write('\n')
+    # f_voc.close()
+    # f_emb.close()
 
     saver = tf.train.Saver()
     saver.save(sess, 'model/my-model-qAndA')

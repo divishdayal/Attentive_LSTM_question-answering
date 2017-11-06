@@ -1,7 +1,8 @@
 import csv
 from chardet import detect
+import numpy as np
 
-def load_data(filename):
+def load_data(filename, test = False):
 	with open(filename) as tsvfile:
 		current_q = ''
 		last_q = ''
@@ -38,7 +39,7 @@ def load_data(filename):
 				else:
 					print 'error in reading'
 			last_q = current_q
-	threads.append([question_text, current_thread_pos, current_thread_neg])
+		threads.append([question_text, current_thread_pos, current_thread_neg])
 
 	pos_threads = filter(lambda x: len(x[1]) > 0 and len(x[2]) > 0, threads)
 	pos_threads_single = filter(lambda x: len(x[1]) == 1, pos_threads)
@@ -51,4 +52,4 @@ def load_data(filename):
 	print 'number of filtered data points - ', len(pos_threads_single)
 	print 'number of total data points - ', len(threads)
 	return pos_threads_single
-# print load_data('WikiQA-train.tsv')
+print load_data('WikiQA-test.tsv')[0]

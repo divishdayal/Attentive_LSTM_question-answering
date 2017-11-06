@@ -104,7 +104,7 @@ def model_qa(x_answer, answer_seq_length, x_question, question_seq_length, max_d
     final_ans_vecs = tf.multiply( output_a, tf.expand_dims(s_aq, -1) ) # -> txh
     output_mean_a = tf.reduce_mean(final_ans_vecs, 1)
 
-    #cosine similarity
-    cos_sim = tf.losses.cosine_distance(tf.nn.l2_normalize(output_mean_q, 0), tf.nn.l2_normalize(output_mean_a, 0), dim=0)
+    #cosine distance
+    cos_distance = tf.losses.cosine_distance(tf.nn.l2_normalize(output_mean_q, 1), tf.nn.l2_normalize(output_mean_a, 1), dim=1)
 
-    return  cos_sim
+    return cos_distance, output_mean_a, output_mean_q
