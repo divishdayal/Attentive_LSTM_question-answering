@@ -20,3 +20,4 @@ The model uses bidirectional LSTMs to construct question vector and applies atte
 5. train.py - the file to be executed for training the model
 6. model.py - The file containing the model		
 
+Find more info at [this](https://divishd.wordpress.com/2017/10/25/bi-directional-lstm-with-attention-for-question-answering-nlp/) blog post.
